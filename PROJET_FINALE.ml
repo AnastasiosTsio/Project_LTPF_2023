@@ -8,6 +8,14 @@ type bexp =
   | Not of bexp
 ;;
 
+type winstr =
+  | Skip 
+  | Assign of bexp * bexp
+  | Seq of winstr * winstr
+  | If of bexp * winstr * winstr
+  | While of bexp * winstr
+;;
+
 let rec bexpPrinter : (bexp -> string) = fun exp ->
   match exp with
   | Bcst true -> "true"
@@ -21,16 +29,6 @@ let rec bexpPrinter : (bexp -> string) = fun exp ->
     | 2 -> "c"
     | 3 -> "d"
     | _ -> "error"
-;;
-
-
-
-type winstr =
-  | Skip 
-  | Assign of bexp * bexp
-  | Seq of winstr * winstr
-  | If of bexp * winstr * winstr
-  | While of bexp * winstr
 ;;
 
 (* Fonction pour faciliter le testing *)
@@ -491,3 +489,56 @@ test_WHILEb "1:=1";;
 
 test_WHILEb "i(c){b:=0;c:=a}";;
 
+type state = bool list;;
+
+let rec getValue : (state -> int -> bool) = fun s i ->
+  match s with
+  | a :: l1 -> if (i = 0) then a else getValue l1 (i-1)
+  | [] -> false
+;;
+
+let rec evalBooleanExpression : (state -> bexp -> bool) = fun s exp ->
+  match exp with
+  | Bcst b            -> b
+  | Ava i             -> (getValue s i)
+  | And (left, right) -> (evalBooleanExpression s left) && (evalBooleanExpression s right)
+  | Or (left, right)  -> (evalBooleanExpression s left) || (evalBooleanExpression s right)
+  | Not (exp)         -> not (evalBooleanExpression s exp)
+;;
+
+let  rec update (s:state) (v:int) (n:bool): state =
+  match v,s with
+  | 0 , h :: d -> n :: d
+  | 0 , []     -> n :: []
+  | v1, h :: d -> h :: (update d (v1-1) n)
+  | v1, []     -> false :: (update [] (v1-1) n)
+;;
+
+
+let evalAssign : (state -> bexp -> bexp -> state) = fun s left right ->
+  match left with
+  | Ava i -> update s i (evalBooleanExpression s right)
+  | _ -> s
+;;
+
+type winstr =
+  | Skip 
+  | Assign of bexp * bexp
+  | Seq of winstr * winstr
+  | If of bexp * winstr * winstr
+  | While of bexp * winstr
+;;
+
+
+let rec evalProgram : (state -> winstr -> state) = fun s instr ->
+  match instr with 
+  | Skip -> s
+  | Assign (left, right) -> evalAssign s left right
+  | Seq (left, right) -> let s = (evalProgram s left) in (evalProgram s right)
+  | If (cond, if_then, if_else) -> 
+      if (evalBooleanExpression s cond) 
+        then (evalProgram e)
+  | While (cond, while_do , while_done ) -> 
+      if (evalBooleanExpression s ) then (evalProgram while_do)
+
+  
