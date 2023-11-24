@@ -225,24 +225,23 @@ let star_L2R (r0 : 'r) (a : ('r -> 'r, 'term) ranalist) : ('r, 'term) ranalist =
   star_pipe_L2R a ++> fun f -> epsilon_res (r0 |> f)
 ;;
 (*
-Nous ajoutons nous même : 
-a1 rendant un résultat suivi de a2 sans résultat donnent un resultat 
+A partir d'ici, nous ajoutons nous même quelques outils qui seront utiles pour la suite.
 *)
+
+(* rendant un résultat suivi de a2 sans résultat donnent un resultat  *)
 let (+->) (a1 : ('res, 'term) ranalist) (a2 : 'term analist) :
   ('res, 'term) ranalist =
   fun l -> let r1,l1 = a1 l in (r1,a2 l1)
 ;;
 
-type ('res ) parselist  =
-  | 
-
-
-
-
-
-
-
-
+(* terminal pour les string *)
+let terminal_string (s : string) : char analist =
+  let rec aux : (char list -> char analist) = fun l ->
+    match l with
+    | [] -> epsilon
+    | c :: queue -> (terminal c) --> (aux queue)
+  in aux (list_of_string s)
+;;
 
 (* Exercice 2.1.1 TEST en ANALIST *)
 
@@ -446,7 +445,8 @@ let rec filter : (char list -> char list -> char list) = fun code blankChars ->
 
 
 let rWHILEb : (string -> winstr*char list) = fun l ->
-  rBLOCK (filter (list_of_string l) (list_of_string " \t\r")) ;;
+  rBLOCK (filter (list_of_string l) (list_of_string " \t\r")) 
+;;
 
 
 let check : (winstr * (char list)) -> string = 
@@ -458,6 +458,7 @@ let check : (winstr * (char list)) -> string =
 let test_WHILEb : (string -> unit) = fun s -> 
   print_string ("\n\n" ^ (check (rWHILEb s)) ^ "\n\n")
 ;;
+
 
 
 
@@ -521,15 +522,6 @@ let evalAssign : (state -> bexp -> bexp -> state) = fun s left right ->
   | _ -> s
 ;;
 
-type winstr =
-  | Skip 
-  | Assign of bexp * bexp
-  | Seq of winstr * winstr
-  | If of bexp * winstr * winstr
-  | While of bexp * winstr
-;;
-
-
 let rec evalProgram : (state -> winstr -> state) = fun s instr ->
   match instr with 
   | Skip -> s
@@ -537,8 +529,21 @@ let rec evalProgram : (state -> winstr -> state) = fun s instr ->
   | Seq (left, right) -> let s = (evalProgram s left) in (evalProgram s right)
   | If (cond, if_then, if_else) -> 
       if (evalBooleanExpression s cond) 
-        then (evalProgram e)
-  | While (cond, while_do , while_done ) -> 
-      if (evalBooleanExpression s ) then (evalProgram while_do)
+        then (evalProgram s if_then)
+        else (evalProgram s if_else)
+  | While (cond, while_do) -> 
+      if (evalBooleanExpression s cond) then let s = (evalProgram s while_do) in (evalProgram s instr)
+      else s
+    ;;
 
-  
+let toAST : (string -> winstr) = fun s ->
+  let (ast,_) = rWHILEb s in ast
+;; 
+
+let evaluate = evalProgram [false;false;false;false] ;; 
+
+let test_eval1 = evaluate (Assign (Ava 0, Bcst true));;
+let test_eval2 = evaluate (toAST "b := 1");; (*[false;true,false,falsee]*)
+let test_eval3 = evaluate (toAST " a := 1; w(a) { i(d) { a:= 0} { d:=1 } }; b: = 1");; (*[false;true;false;true]*)
+let test_eval4 = evaluate (toAST "");;(*[false;false;false;false]*)
+let test_eval5 = evaluate (toAST "a := 1; b := 1; c := 1; w(a){i(c){c := 0; a := b}{b := 0; c := a}}");; (*[false;false;false;false]*)
