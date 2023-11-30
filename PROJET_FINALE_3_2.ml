@@ -160,22 +160,22 @@ let terminal_cond_res (p : 'term -> bool) : ('res ,'term) ranalist= function
 
 (* Corresponding to previous language *)
 type token =
-  | Boolean of bool (* 1|0*)
-  | Variable of string (* x *)
-  | OpenBrace (* { *)
-  | CloseBrace (* }*)
-  | Semicolon (* ; *)
-  | Assignement (* := *)
-  | While (* while *)
-  | If (* if *)
-  | Then (* then *)
-  | Else (* else *)
-  | Not (* ! *)
-  | And (* && *)
-  | Or (* || *)
-  | ParenthesisOpen (* ( *)
-  | ParenthesisClose (* ) *)
-  | Equal
+  | LexBoolean of bool (* 1|0*)
+  | LexVariable of string (* x *)
+  | LexOpenBrace (* { *)
+  | LexCloseBrace (* }*)
+  | LexSemicolon (* ; *)
+  | LexAssignement (* := *)
+  | LexWhile (* while *)
+  | LexIf (* if *)
+  | LexThen (* then *)
+  | LexElse (* else *)
+  | LexNot (* ! *)
+  | LexAnd (* && *)
+  | LexOr (* || *)
+  | LexOpenPar (* ( *)
+  | LexClosePar (* ) *)
+  | LexEqual
 ;;
 
 (* Lexing *)
@@ -223,27 +223,27 @@ let variable_lexer : (token, char) ranalist =
   in
   fun l -> match l with
     | x :: xs when is_letter x -> let (acc, l) = collect_chars (Char.escaped x) xs in
-                                  (Variable acc, l)
+                                  (LexVariable acc, l)
     | _ -> raise Echec
 ;;
 
 let rec wordExprs =
   fun l ->l |>
-  terminal_key_lex "true" (Boolean true)
+  terminal_key_lex "true"   (LexBoolean true)
   +|
-  terminal_key_lex "false" (Boolean false)
+  terminal_key_lex "false"  (LexBoolean false)
   +| 
-  terminal_key_lex "1" (Boolean true)
+  terminal_key_lex "1"      (LexBoolean true)
   +|
-  terminal_key_lex "0" (Boolean false )
+  terminal_key_lex "0"      (LexBoolean false)
   +|
-  terminal_key_lex "while" While
+  terminal_key_lex "while"  LexWhile
   +|
-  terminal_key_lex "if" If
+  terminal_key_lex "if"     LexIf
   +|
-  terminal_key_lex "then" Then
+  terminal_key_lex "then"   LexThen
   +|
-  terminal_key_lex "else" Else
+  terminal_key_lex "else"   LexElse
   +|
   variable_lexer
 ;;
@@ -251,25 +251,25 @@ let rec wordExprs =
 let rec transi : ((token, char) ranalist) = 
   fun l -> l 
       |>
-      terminal_lex "{" OpenBrace
+      terminal_lex "{"    LexOpenBrace
       +|
-      terminal_lex "}" CloseBrace
+      terminal_lex "}"    LexCloseBrace
       +|
-      terminal_lex ";" Semicolon
+      terminal_lex ";"    LexSemicolon
       +|
-      terminal_lex ":=" Assignement
+      terminal_lex ":="   LexAssignement
       +|
-      terminal_lex "!" Not
+      terminal_lex "!"    LexNot
       +|
-      terminal_lex "&&" And
+      terminal_lex "&&"   LexAnd
       +|
-      terminal_lex "||" Or
+      terminal_lex "||"   LexOr
       +|
-      terminal_lex "(" ParenthesisOpen
+      terminal_lex "("    LexOpenPar
       +|
-      terminal_lex ")" ParenthesisClose
-      +| 
-      terminal_lex "==" Equal
+      terminal_lex ")"    LexClosePar
+      +|
+      terminal_lex "=="   LexEqual
 ;;
 
 let rec allPaths : (token, char) ranalist =
@@ -287,6 +287,156 @@ let lexer : (token list, char) ranalist = star_list allPaths;;
 
 (* Test *)
 
-lexer (list_of_string "if(hagrid == true) then 1 else false ");;
+lexer (list_of_string "if(hagrid == true) then !1 else false ");;
 
 (* Système de Variable TODO*)
+
+type env = (string * bool) list;;
+
+let empty_env = [];;
+let add_env x v env = (x,v) :: env;;
+let rec find_env x env = match env with
+  | [] -> raise Not_found
+  | (y,v) :: env -> if x = y then v else find_env x env
+;;
+
+(* Parser *)
+
+
+(* Rappel Grammaires :
+   ----- BEXP ----- (début E)
+   VAL  ::= [Boolean]
+   VAR  ::= [Variable]
+   A    ::= VAL | VAR
+   E    ::= OR E'
+   E'   ::= [Equal] OR E' | ε
+   OR    ::= AND OR'
+   OR'   ::= [Or] AND OR' | ε
+   AND    ::= F AND'
+   AND'   ::= [And] F AND' | ε
+   F    ::= [Not] F | A | [OpenPar] E [ClosePar]
+
+   ----- INSTR ----- (début BLOCK)
+
+   EXPR  ::= E
+   SKIP  ::= ε
+   WHILE ::= [While] [OpenPar] EXPR [ClosePar] [OpenBrace] BLOCK [CloseBrace]
+   ASSIG ::= VAR [Assignement] EXPR
+   IF    ::= [If] [OpenPar] EXPR [ClosePar] [Then] [OpenBrace] BLOCK [CloseBrace] ELSE
+   ELSE  ::= [Else] [OpenBrace] BLOCK [CloseBrace] | ε
+   SEQ   ::= ([SemiColon] INSTR SEQ) | ε
+   INSTR ::= ( WHILE | IF | ASSIGN | SKIP )
+   BLOCK ::= INSTR SEQ 
+*)
+
+let rVAL : (bexp, token) ranalist =
+  fun l -> match l with
+    | (LexBoolean b) :: l -> (Bcst b, l)
+    | _ -> raise Echec
+;;
+let rVAR : (bexp, token) ranalist =
+  fun l -> match l with
+    | (LexVariable v) :: l -> (Ava v, l)
+    | _ -> raise Echec
+;;
+
+let rA : (bexp, token) ranalist = rVAL +| rVAR;;
+
+let rec rE : (bexp, token) ranalist = fun l -> 
+  l |>
+  (rOR ++> fun left -> rE' left)
+
+and rE' : bexp -> (bexp, token) ranalist = fun left l -> 
+  l |>
+  (terminal LexEqual -+> rOR ++> fun right -> rE' (Equal (left, right)))
+  +|
+  epsilon_res left
+  
+and rOR : (bexp, token) ranalist = fun l ->
+  l |>
+  (rAND ++> fun left -> rOR' left)
+
+and rOR' : bexp -> (bexp, token) ranalist = fun left l ->
+  l |>
+  (terminal LexOr -+> rAND ++> fun right -> rOR' (Or (left, right)))
+  +|
+  epsilon_res left
+
+and rAND : (bexp, token) ranalist = fun l ->
+  l |>
+  (rF ++> fun left -> rAND' left)
+
+and rAND' : bexp -> (bexp, token) ranalist = fun left l ->
+  l |>
+  (terminal LexAnd -+> rF ++> fun right -> rAND' (And (left, right)))
+  +|
+  epsilon_res left
+
+and rF : (bexp, token) ranalist = fun l ->
+  l |>
+  (terminal LexNot -+> rF ++> fun exp -> epsilon_res (Not exp))
+  +|
+  rA
+  +|
+  (terminal LexOpenPar -+> rE +-> terminal LexClosePar)
+;;
+
+let rEXPR : (bexp, token) ranalist = rE;;
+
+let rSKIP : (winstr, token) ranalist = epsilon_res Skip;;
+
+let rASSIG : (winstr, token) ranalist = 
+  fun l -> l |>
+           rVAR +-> terminal LexAssignement ++> fun var -> rEXPR
+           ++> fun expr -> epsilon_res (Assign (var, expr))
+;;
+
+let rec rWHILE : (winstr, token) ranalist = 
+  fun l -> l |>
+           terminal LexWhile --> terminal LexOpenPar -+> rEXPR +-> terminal LexClosePar
+           +-> terminal LexOpenBrace ++> fun cond -> rBLOCK +-> terminal LexCloseBrace
+           ++> fun codeBlock -> epsilon_res (While (cond, codeBlock))
+
+and rIF : (winstr, token) ranalist = 
+  fun l -> l |>
+  terminal LexIf --> terminal LexOpenPar -+> rEXPR +-> terminal LexClosePar
+  +-> terminal LexThen +-> terminal LexOpenBrace ++> fun cond -> rBLOCK +-> terminal LexCloseBrace
+  ++> fun thenBlock -> rELSE ++> fun elseBlock -> epsilon_res (If (cond, thenBlock, elseBlock))
+
+and rELSE : (winstr, token) ranalist =
+  fun l -> l |>
+  (terminal LexElse --> terminal LexOpenBrace -+> rBLOCK +-> terminal LexCloseBrace
+  ++> fun elseBlock -> epsilon_res elseBlock)
+  +|
+  epsilon_res Skip
+
+and rINSTR : (winstr, token) ranalist = fun l -> l |> rWHILE +| rIF +| rASSIG +| rSKIP 
+
+and rSEQ : winstr -> (winstr, token) ranalist = fun left l ->
+  l |>
+  (terminal LexSemicolon -+> rINSTR ++> fun right -> rSEQ (Seq (left, right)))
+  +|
+  epsilon_res left
+
+and rBLOCK : (winstr, token) ranalist = 
+  fun l -> l |> 
+  rINSTR ++> fun left -> rSEQ left
+;;
+
+let rMyLang : (string -> winstr*token list) = fun l ->
+  let (toks, _) = (lexer (list_of_string l)) in
+  rBLOCK toks 
+;;
+
+
+(* Test *)
+
+rMyLang 
+"
+a:=1;
+if (a==true) 
+then {b:=1} 
+else {b:=false};
+
+while (true) {}
+";;

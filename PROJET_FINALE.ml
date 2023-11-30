@@ -455,6 +455,7 @@ let check : (winstr * (char list)) -> string =
   | [] -> winstrPrinter instr
   | _ -> "Erreur"  
 ;;
+
 let test_WHILEb : (string -> unit) = fun s -> 
   print_string ("\n\n" ^ (check (rWHILEb s)) ^ "\n\n")
 ;;
