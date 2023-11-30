@@ -440,3 +440,12 @@ else {b:=false};
 
 while (true) {}
 ";;
+
+rMyLang
+"
+hagrid := 1;
+bouteille := 1;
+if (hagrid && bouteille == true) 
+  then{bouteille := 1} 
+  else{bouteille := false};
+"
