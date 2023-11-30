@@ -423,7 +423,7 @@ and rBLOCK : (winstr, token) ranalist =
   rINSTR ++> fun left -> rSEQ left
 ;;
 
-let rMyLang : (string -> winstr*token list) = fun l ->
+let myLangToAST : (string -> winstr*token list) = fun l ->
   let (toks, _) = (lexer (list_of_string l)) in
   rBLOCK toks 
 ;;
@@ -431,7 +431,7 @@ let rMyLang : (string -> winstr*token list) = fun l ->
 
 (* Test *)
 
-rMyLang 
+myLangToAST 
 "
 a:=1;
 if (a==true) 
@@ -441,7 +441,7 @@ else {b:=false};
 while (true) {}
 ";;
 
-rMyLang
+myLangToAST
 "
 hagrid := 1;
 bouteille := 1;
