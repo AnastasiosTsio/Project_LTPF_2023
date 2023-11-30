@@ -4,6 +4,7 @@ type bexp =
   | And of bexp * bexp
   | Or of bexp * bexp
   | Not of bexp
+  | Equal of bexp * bexp
 ;;
 
 type winstr =
@@ -141,6 +142,7 @@ let (+->) (a1 : ('res, 'term) ranalist) (a2 : 'term analist) :
   fun l -> let r1,l1 = a1 l in (r1,a2 l1)
 ;;
 
+
 (* terminal pour les string *)
 let terminal_string (s : string) : char analist =
   let rec aux : (char list -> char analist) = fun l ->
@@ -173,6 +175,7 @@ type token =
   | Or (* || *)
   | ParenthesisOpen (* ( *)
   | ParenthesisClose (* ) *)
+  | Equal
 ;;
 
 (* Lexing *)
@@ -180,7 +183,19 @@ let is_alpha_numeric c =
   (Char.code c >= Char.code 'a' && Char.code c <= Char.code 'z') ||
   (Char.code c >= Char.code 'A' && Char.code c <= Char.code 'Z') ||
   (Char.code c >= Char.code '0' && Char.code c <= Char.code '9')
+;;
 
+let terminal_lex : (string -> (token) -> (token, char) ranalist) =
+  fun str tok -> terminal_string str -+> epsilon_res tok
+;;
+
+let terminal_key_lex : (string -> (token) -> (token, char) ranalist) =
+  fun s tok l -> let (newToken, newList) =  (terminal_lex s tok l) 
+  in 
+  match newList with
+  | x :: _ when (is_alpha_numeric x) -> raise Echec
+  | _ -> (newToken, newList)
+;;
 
 let whitespace : char analist = 
   fun l -> l |>
@@ -194,47 +209,84 @@ let string_of_charlist l =
   in aux l
 ;;
 
-let exprLex : ((token, char) ranalist) = 
+let is_letter c =
+  (Char.code c >= Char.code 'a' && Char.code c <= Char.code 'z') ||
+  (Char.code c >= Char.code 'A' && Char.code c <= Char.code 'Z')
+;;
+
+(* Lexer for a variable *)
+let variable_lexer : (token, char) ranalist =
+  let rec collect_chars acc = function
+    | [] -> (acc, [])
+    | x :: xs when is_alpha_numeric x -> collect_chars (acc ^ Char.escaped x) xs
+    | l -> (acc, l)
+  in
+  fun l -> match l with
+    | x :: xs when is_letter x -> let (acc, l) = collect_chars (Char.escaped x) xs in
+                                  (Variable acc, l)
+    | _ -> raise Echec
+;;
+
+let rec wordExprs =
+  fun l ->l |>
+  terminal_key_lex "true" (Boolean true)
+  +|
+  terminal_key_lex "false" (Boolean false)
+  +| 
+  terminal_key_lex "1" (Boolean true)
+  +|
+  terminal_key_lex "0" (Boolean false )
+  +|
+  terminal_key_lex "while" While
+  +|
+  terminal_key_lex "if" If
+  +|
+  terminal_key_lex "then" Then
+  +|
+  terminal_key_lex "else" Else
+  +|
+  variable_lexer
+;;
+
+let rec transi : ((token, char) ranalist) = 
   fun l -> l 
-           |>
-           (terminal_string "true" -+> epsilon_res (Boolean true))
-           +|
-           (terminal_string "false" -+> epsilon_res (Boolean false))
-           +|
-           (terminal_string "{" -+> epsilon_res (OpenBrace))
-           +|
-           (terminal_string "}" -+> epsilon_res (CloseBrace))
-           +|
-           (terminal_string ";" -+> epsilon_res (Semicolon))
-           +|
-           (terminal_string ":=" -+> epsilon_res (Assignement))
-           +|
-           (terminal_string "while" -+> epsilon_res (While))
-           +|
-           (terminal_string "if" -+> epsilon_res (If))
-           +|
-           (terminal_string "then" -+> epsilon_res (Then))
-           +|
-           (terminal_string "else" -+> epsilon_res (Else))
-           +|
-           (terminal_string "!" -+> epsilon_res (Not))
-           +|
-           (terminal_string "&&" -+> epsilon_res (And))
-           +|
-           (terminal_string "||" -+> epsilon_res (Or))
-           +|
-           (terminal_string "(" -+> epsilon_res (ParenthesisOpen))
-           +|
-           (terminal_string ")" -+> epsilon_res (ParenthesisClose))
+      |>
+      terminal_lex "{" OpenBrace
+      +|
+      terminal_lex "}" CloseBrace
+      +|
+      terminal_lex ";" Semicolon
+      +|
+      terminal_lex ":=" Assignement
+      +|
+      terminal_lex "!" Not
+      +|
+      terminal_lex "&&" And
+      +|
+      terminal_lex "||" Or
+      +|
+      terminal_lex "(" ParenthesisOpen
+      +|
+      terminal_lex ")" ParenthesisClose
+      +| 
+      terminal_lex "==" Equal
+;;
+
+let rec allPaths : (token, char) ranalist =
+  fun l -> l 
+  |>
+  (wordExprs)
+  +|
+  (transi)
+  +|
+  (whitespace -+> allPaths)
 ;;
 
 
-let lexer : (token list, char) ranalist = star_list exprLex ;;
+let lexer : (token list, char) ranalist = star_list allPaths;;
 
 (* Test *)
 
-let test_lexer = lexer (list_of_string "if (abcde) then {x := true;} else {x := false;}");;
+lexer (list_of_string "if(hagrid == true) then 1 else false ");;
 
-(* Parsing *)
-
-
+(* Système de Variable TODO*)
