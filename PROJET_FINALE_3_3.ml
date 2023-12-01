@@ -24,19 +24,28 @@ let list_of_string s =
     if i = n then [] else s.[i] :: boucle (i+1)
   in boucle 0
 ;;
+
+type 'a inflist = unit -> 'a contentsil
+and 'a contentsil = Cons of 'a * 'a inflist
+
 (* Le type des aspirateurs (fonctions qui aspirent le préfixe d'une liste) *)
-type 'term analist = 'term list -> 'term list;;
+(* type 'term analist = 'term list -> 'term list;; *)
+type 'term analist = 'term inflist -> 'term inflist;;
+
+(* Exception pour signaler un échec *)
 
 exception Echec;;
 
 (* terminal constant *)
-let terminal (c : 't) : 't analist = function
-  | x :: l when x = c -> l
-  | _ -> raise Echec
+let terminal (c : 't) : 't analist = fun l ->
+    match l () with
+    | Cons(x, l) when x = c -> l
+    | _ -> raise Echec
 ;;
 (* terminal conditionnel *)
-let terminal_cond (p : 'term -> bool) : 'term analist = function
-  | x :: l when p x -> l
+let terminal_cond (p : 'term -> bool) : 'term analist = fun
+  l -> match l () with
+  | Cons(x, l) when p x -> l
   | _ -> raise Echec
 ;;
 
@@ -51,6 +60,8 @@ let epsilon : 'term analist = fun l -> l;;
 let (-->) (a1 : 'term analist) (a2 : 'term analist) : 'term analist =
   fun l -> let l = a1 l in a2 l
 ;;
+
+
 (* Choix entre a1 ou a2 *)
 let (-|) (a1 : 'term analist) (a2 : 'term analist) : 'term analist =
   fun l -> try a1 l with Echec -> a2 l
@@ -339,13 +350,13 @@ let rVAL : (bexp, token) ranalist =
     | _ -> raise Echec
 ;;
 
-let rVAR : (variable, token) ranalist =
+let rVAR : (bexp, token) ranalist =
   fun l -> match l with
-    | (LexVariable v) :: l -> (v, l)
+    | (LexVariable v) :: l -> (Ava v, l)
     | _ -> raise Echec
 ;;
 
-let rA : (bexp, token) ranalist = rVAL +| (rVAR ++> fun v -> epsilon_res (Ava v));;
+let rA : (bexp, token) ranalist = rVAL +| rVAR;;
 
 let rec rE : (bexp, token) ranalist = fun l -> 
   l |>
