@@ -499,6 +499,15 @@ let rec getValue : (state -> int -> bool) = fun s i ->
   | [] -> false
 ;;
 
+
+let  rec update (s:state) (v:int) (n:bool): state =
+  match v,s with
+  | 0 , h :: d -> n :: d
+  | 0 , []     -> n :: []
+  | v1, h :: d -> h :: (update d (v1-1) n)
+  | v1, []     -> false :: (update [] (v1-1) n)
+;;
+
 let rec evalBooleanExpression : (state -> bexp -> bool) = fun s exp ->
   match exp with
   | Bcst b            -> b
@@ -508,13 +517,6 @@ let rec evalBooleanExpression : (state -> bexp -> bool) = fun s exp ->
   | Not (exp)         -> not (evalBooleanExpression s exp)
 ;;
 
-let  rec update (s:state) (v:int) (n:bool): state =
-  match v,s with
-  | 0 , h :: d -> n :: d
-  | 0 , []     -> n :: []
-  | v1, h :: d -> h :: (update d (v1-1) n)
-  | v1, []     -> false :: (update [] (v1-1) n)
-;;
 
 
 
