@@ -1,3 +1,9 @@
+(*
+  Noah KOHRS
+  Alexis NOEL
+  Anastasios TSIOMPANIDIS
+*)
+
 (*2.3 Preuves sur la SN*)
 
 (*Exercices à partir de la ligne 202*)
