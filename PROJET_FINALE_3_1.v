@@ -148,6 +148,12 @@ Definition Xr := Ava Xl.
 Definition Yl := 2.
 Definition Yr := Ava Yl.
 
+Definition N0 := Aco 0.
+Definition N1 := Aco 1.
+Definition N2 := Aco 2.
+Definition N3 := Aco 3.
+Definition N4 := Aco 4.
+
 Definition incrI := Assign Il (Apl N1 Ir).
 Definition incrX := Assign Xl (Apl Yr Xr).
 Definition incrY := Assign Yl (Apl N2 Yr).
@@ -209,6 +215,25 @@ eapply SOS_again.
 }
 Qed.
 
+Lemma SOS_Pcarre_2_2e_tour : SOS (Inter Pcarre_2 [1; 1; 3]) (Inter Pcarre_2 [2; 4; 5]).
+Proof.
+  eapply SOS_again.
+  { apply SOS_While. }
+  { eapply SOS_again.
+    { apply SOS_If_true. reflexivity. }
+    { eapply SOS_again.
+      { apply SOS_Seqi. apply SOS_Seqf. apply SOS_Assign. }
+      { eapply SOS_again.
+        { apply SOS_Seqi. apply SOS_Seqf. apply SOS_Assign. }
+        { eapply SOS_again. 
+          { apply SOS_Seqf. apply SOS_Assign. }
+          { apply SOS_stop. }
+        }
+      }
+    }
+  }
+Qed.
+
 Theorem SOS_Pcarre_2_fin_V1 : SOS (Inter Pcarre_2 [0;0;1]) (Final [2;4;5]).
 Proof.
   apply SOS_trans with (Inter Pcarre_2 [1; 1; 3]).
@@ -218,6 +243,12 @@ Qed.
 
 (* ========================================================================== *)
 (*Exercice 3.1.3*)
+Lemma Sn_2 n : S n + S n = S (S (n + n)).
+Proof. ring. Qed.
+
+Lemma Sn_carre n : S n * S n = S (n + n + n * n).
+Proof. ring. Qed.
+Definition invar_cc n := [n; n*n; S (n+n)].
 Theorem SOS_corps_carre n : SOS (Inter corps_carre (invar_cc n)) (Final (invar_cc (S n))).
 Proof.
   eapply SOS_again.
@@ -229,6 +260,19 @@ Proof.
   --- cbn. cbv[invar_cc]. rewrite Sn_2. rewrite Sn_carre. apply SOS_stop.
 Qed.    
 
+Fixpoint SOS_seq i1 i2 s1 s2 (so : SOS (Inter i1 s1) (Final s2)) :
+  SOS (Inter (Seq i1 i2) s1) (Inter i2 s2).
+Proof.
+  admit.
+Admitted.
+
+
+Lemma SOS_corps_carre_inter n i :
+  SOS (Inter (Seq corps_carre i) (invar_cc n)) (Inter i (invar_cc (S n))).
+Proof.
+  apply SOS_seq. apply SOS_corps_carre.
+Qed.
+
 Lemma SOS_Pcarre_tour :
   forall n i, eqnatb i n = false ->
   SOS (Inter (Pcarre n) (invar_cc i)) (Inter (Pcarre n) (invar_cc (S i))).
@@ -239,6 +283,13 @@ Proof.
   - eapply SOS_again.
   -- apply SOS_If_true. cbn. rewrite so. reflexivity.
   -- apply SOS_corps_carre_inter.
+Qed.
+
+Lemma eqnatb_refl : forall n, eqnatb n n = true.
+Proof.
+  intro n. induction n as [(**)|n Hn].
+  - cbn. reflexivity.
+  - cbn. apply Hn.
 Qed.
 
 Theorem SOS_Pcarre_n_fini :
