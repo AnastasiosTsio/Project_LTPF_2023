@@ -1,8 +1,8 @@
+type avar = int ;;  
 
-
-type bexp = 
+type bexp =
   | Bcst of bool
-  | Ava of int
+  | Ava of avar
   | And of bexp * bexp
   | Or of bexp * bexp
   | Not of bexp
@@ -10,10 +10,10 @@ type bexp =
 
 type winstr =
   | Skip 
-  | Assign of bexp * bexp
+  | Assign of avar * bexp
   | Seq of winstr * winstr
-  | If of bexp * winstr * winstr
-  | While of bexp * winstr
+  | If of avar * winstr * winstr
+  | While of avar * winstr
 ;;
 
 let rec bexpPrinter : (bexp -> string) = fun exp ->
@@ -36,10 +36,10 @@ let winstrPrinter : (winstr -> string) = fun instr ->
   let rec aux : (winstr -> string) = fun instr ->
     match instr with
     | Skip -> "skip"
-    | Assign (left, right) -> (bexpPrinter left) ^ " := " ^ (bexpPrinter right)
+    | Assign (left, right) -> (bexpPrinter (Ava left)) ^ " := " ^ (bexpPrinter right)
     | Seq (left, right) -> (aux left) ^ ";\n" ^ (aux right)
-    | If (cond, if_then, if_else) -> "if " ^ (bexpPrinter cond) ^ " then {\n" ^ (aux if_then) ^ "\n} else {\n" ^ (aux if_else) ^ "\n}"
-    | While (cond, body) -> "while (" ^ (bexpPrinter cond) ^ ") do {\n" ^ (aux body) ^ "\n}"
+    | If (cond, if_then, if_else) -> "if " ^ (bexpPrinter (Ava cond)) ^ " then {\n" ^ (aux if_then) ^ "\n} else {\n" ^ (aux if_else) ^ "\n}"
+    | While (cond, body) -> "while (" ^ (bexpPrinter (Ava cond)) ^ ") do {\n" ^ (aux body) ^ "\n}"
   in aux instr
 ;;
 
@@ -83,16 +83,6 @@ a:=1;b:=1;c:=1;w(a){i(c){c:=0;a:=b}{b:=0;c:=a}}
 
 
 (* Exercice 1.4
-   Version 1 :
-   C ::= '0' | '1'
-   V ::= 'a' | 'b' | 'c' | 'd'
-   A ::= C | V
-   E ::= T '+' E | T
-   T ::= F '.' T | F
-   F ::= '!' F | A | '(' E ')'
-   D ::= A T | A E | F D
-   =================================
-   Version 2 (suivant mzthode plus classique):
    C ::= '0' | '1'
    V ::= 'a' | 'b' | 'c' | 'd'
    A ::= C | V
@@ -106,6 +96,8 @@ a:=1;b:=1;c:=1;w(a){i(c){c:=0;a:=b}{b:=0;c:=a}}
    partir de WHILEb~~ et de ce language d'expression, il suffit de remplacer
    EXPR de la grammaire WHILEb~~ tel que :
    EXPR :== E
+
+   C'est ce que nous ferons dans la suite.
 *)
 
 
@@ -317,12 +309,12 @@ let valOption : (char->bexp option) = fun c ->
   |  _  -> None
 ;;
 
-let varOption : (char -> bexp option) = fun c -> 
+let varOption : (char -> avar option) = fun c -> 
   match c with 
-  | 'a' -> Some(Ava 0)
-  | 'b' -> Some(Ava 1)
-  | 'c' -> Some(Ava 2)
-  | 'd' -> Some(Ava 3)
+  | 'a' -> Some(0)
+  | 'b' -> Some(1)
+  | 'c' -> Some(2)
+  | 'd' -> Some(3)
   |  _  -> None
 ;;
 
@@ -351,8 +343,8 @@ let varOption : (char -> bexp option) = fun c ->
 
 (* Grammaire des expressions booléennes ~ 2.1.3 *)
 let rVAL  : ((bexp, char) ranalist) = terminal_res valOption;;
-let rVAR  : ((bexp, char) ranalist) = terminal_res varOption;;
-let rA = rVAL +| rVAR;;
+let rVAR  : ((avar, char) ranalist) = terminal_res varOption;;
+let rA = rVAL +| (rVAR ++> fun var -> epsilon_res (Ava var));;
 
 let rec rE = fun l ->
   (rT ++> fun left -> rE' left) l
@@ -390,7 +382,7 @@ let rEXPR = rE ;;
 
 let rec rASSIG : ((winstr, char) ranalist) = fun l ->
   (rVAR +-> terminal ':' +-> terminal '=' ++>
-  fun (left : bexp) : (((winstr, char) ranalist)) ->
+  fun (left : avar) : (((winstr, char) ranalist)) ->
     (rEXPR ++> fun (right : bexp) -> epsilon_res (Assign(left,right)))
   ) l
 ;;
@@ -520,9 +512,9 @@ let rec evalBooleanExpression : (state -> bexp -> bool) = fun s exp ->
 
 
 
-let evalAssign : (state -> bexp -> bexp -> state) = fun s left right ->
+let evalAssign : (state -> avar -> bexp -> state) = fun s left right ->
   match left with
-  | Ava i -> update s i (evalBooleanExpression s right)
+  | i -> update s i (evalBooleanExpression s right)
   | _ -> s
 ;;
 
@@ -532,11 +524,11 @@ let rec evalProgram : (state -> winstr -> state) = fun s instr ->
   | Assign (left, right) -> evalAssign s left right
   | Seq (left, right) -> let s = (evalProgram s left) in (evalProgram s right)
   | If (cond, if_then, if_else) -> 
-      if (evalBooleanExpression s cond) 
+      if (evalBooleanExpression s (Ava cond)) 
         then (evalProgram s if_then)
         else (evalProgram s if_else)
   | While (cond, while_do) -> 
-      if (evalBooleanExpression s cond) then let s = (evalProgram s while_do) in (evalProgram s instr)
+      if (evalBooleanExpression s (Ava cond)) then let s = (evalProgram s while_do) in (evalProgram s instr)
       else s
     ;;
 
@@ -546,7 +538,7 @@ let toAST : (string -> winstr) = fun s ->
 
 let evaluate = evalProgram [false;false;false;false] ;; 
 
-let test_eval1 = evaluate (Assign (Ava 0, Bcst true));;
+let test_eval1 = evaluate (Assign (0, Bcst true));; (*[true;true,false,falsee]*)
 let test_eval2 = evaluate (toAST "b := 1");; (*[false;true,false,falsee]*)
 let test_eval3 = evaluate (toAST " a := 1; w(a) { i(d) { a:= 0} { d:=1 } }; b: = 1");; (*[false;true;false;true]*)
 let test_eval4 = evaluate (toAST "");;(*[false;false;false;false]*)
