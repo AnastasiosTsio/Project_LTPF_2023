@@ -543,3 +543,4 @@ let test_eval2 = evaluate (toAST "b := 1");; (*[false;true,false,falsee]*)
 let test_eval3 = evaluate (toAST " a := 1; w(a) { i(d) { a:= 0} { d:=1 } }; b: = 1");; (*[false;true;false;true]*)
 let test_eval4 = evaluate (toAST "");;(*[false;false;false;false]*)
 let test_eval5 = evaluate (toAST "a := 1; b := 1; c := 1; w(a){i(c){c := 0; a := b}{b := 0; c := a}}");; (*[false;false;false;false]*)
+

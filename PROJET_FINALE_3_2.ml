@@ -154,12 +154,6 @@ let terminal_string (s : string) : char analist =
   in aux (list_of_string s)
 ;;
 
-(* terminal conditionnel avec resultat *)
-let terminal_cond_res (p : 'term -> bool) : ('res ,'term) ranalist= function
-  | x :: l when p x -> (x,l)
-  | _ -> raise Echec
-;;
-
 (* Corresponding to previous language *)
 type token =
   | LexBoolean of bool (* 1|0*)
