@@ -130,6 +130,8 @@ Inductive SOS : config -> config -> Prop :=
 
 (* ========================================================================== *)
 (*Exercice 3.1.3*) 
+
+
 Theorem SOS_trans : forall c1 c2 c3, SOS c1 c2 -> SOS c2 c3 -> SOS c1 c3.
 Proof.
   intros c1 c2 c3 h1 h2.
@@ -140,6 +142,21 @@ Proof.
     { apply Hrec1. apply h2. }
   }
 Qed.
+
+(*
+Pour toute paire d'instructions i1 et i2, et pour tout état final s2, 
+si la relation SOS relie un état intermédiaire 
+Inter i1 s1 à un état final Final s2 par l'intermédiaire d'une séquence 
+d'instructions i1 et i2, alors la même relation SOS relie un nouvel état 
+intermédiaire Inter (Seq i1 i2) s1 à un nouvel état intermédiaire Inter 
+i2 s2 par l'intermédiaire de la séquence combinée de i1 et i2.
+*)
+Fixpoint SOS_seq i1 i2 s1 s2 (so : SOS (Inter i1 s1) (Final s2)) :
+  SOS (Inter (Seq i1 i2) s1) (Inter i2 s2).
+Proof.
+  admit.
+Admitted.
+
 
 Definition Il := 0.
 Definition Ir := Ava Il.
@@ -160,7 +177,7 @@ Definition incrY := Assign Yl (Apl N2 Yr).
 Definition corps_carre := Seq incrI (Seq incrX incrY).
 Definition Pcarre_2 := While (Bnot (Beqnat Ir (Aco 2))) corps_carre.
 Definition Pcarre n := While (Bnot (Beqnat Ir (Aco n))) corps_carre.
-(** Nouveau : on peut jouer avec des programmes qui bouclent *)
+
 Definition Pcarre_inf := While Btrue corps_carre.
 
 Lemma SOS_Pcarre_2_1er_tour : SOS (Inter Pcarre_2 [0;0;1]) (Inter Pcarre_2 [1; 1; 3]).
@@ -182,7 +199,13 @@ Proof.
   }
 Qed.
              
-
+(*
+La relation SOS relie l'état intermédiaire Inter Pcarre_inf 
+[0;0;1] à l'état intermédiaire Inter Pcarre_inf [1;1;3] dans 
+le contexte d'une exécution du programme. En d'autres termes,
+le programme conduit de l'état [0;0;1] à l'état [1;1;3] lors 
+du premier tour d'exécution.
+*)
 Theorem SOS_Pcarre_inf_1er_tour : SOS (Inter Pcarre_inf [0;0;1]) (Inter Pcarre_inf [1; 1; 3]).
 Proof.
   eapply SOS_again.
@@ -202,19 +225,13 @@ Proof.
   }
 Qed.
 
-Theorem SOS_Pcarre_2_fini : SOS (Inter Pcarre_2 [2; 4; 5]) (Final [2; 4; 5]).
-Proof.
-eapply SOS_again.
-{ apply SOS_While. }
-{ eapply SOS_again.
-  { apply SOS_If_false. reflexivity. }
-  { eapply SOS_again.
-    { apply SOS_Skip. }
-    { apply SOS_stop. }
-  }
-}
-Qed.
-
+(*
+Le lemme SOS_Pcarre_2_2e_tour en Coq affirme que la relation SOS 
+relie l'état intermédiaire Inter Pcarre_2 [1; 1; 3] à l'état intermédiaire 
+Inter Pcarre_2 [2; 4; 5]. En d'autres termes, il s'agit d'un programme ou 
+la séquence d'instructions spécifié par Pcarre_2 conduit de l'état [1;1;3] 
+à l'état [2;4;5] lors du deuxième tour d'exécution.
+*)
 Lemma SOS_Pcarre_2_2e_tour : SOS (Inter Pcarre_2 [1; 1; 3]) (Inter Pcarre_2 [2; 4; 5]).
 Proof.
   eapply SOS_again.
@@ -234,6 +251,26 @@ Proof.
   }
 Qed.
 
+(*
+Le théorème SOS_Pcarre_2_fini en Coq affirme que la relation SOS
+relie l'état intermédiaire Inter Pcarre_2 [2; 4; 5] à l'état final 
+Final [2; 4; 5]. En d'autres termes, il s'agit d'un programme ou 
+la séquence d'instructions spécifié par Pcarre_2 atteint l'état final 
+[2; 4; 5].
+*)
+Theorem SOS_Pcarre_2_fini : SOS (Inter Pcarre_2 [2; 4; 5]) (Final [2; 4; 5]).
+Proof.
+eapply SOS_again.
+{ apply SOS_While. }
+{ eapply SOS_again.
+  { apply SOS_If_false. reflexivity. }
+  { eapply SOS_again.
+    { apply SOS_Skip. }
+    { apply SOS_stop. }
+  }
+}
+Qed.
+
 Theorem SOS_Pcarre_2_fin_V1 : SOS (Inter Pcarre_2 [0;0;1]) (Final [2;4;5]).
 Proof.
   apply SOS_trans with (Inter Pcarre_2 [1; 1; 3]).
@@ -249,6 +286,8 @@ Proof. ring. Qed.
 Lemma Sn_carre n : S n * S n = S (n + n + n * n).
 Proof. ring. Qed.
 Definition invar_cc n := [n; n*n; S (n+n)].
+
+
 Theorem SOS_corps_carre n : SOS (Inter corps_carre (invar_cc n)) (Final (invar_cc (S n))).
 Proof.
   eapply SOS_again.
@@ -259,12 +298,6 @@ Proof.
   --- apply SOS_Assign.
   --- cbn. cbv[invar_cc]. rewrite Sn_2. rewrite Sn_carre. apply SOS_stop.
 Qed.    
-
-Fixpoint SOS_seq i1 i2 s1 s2 (so : SOS (Inter i1 s1) (Final s2)) :
-  SOS (Inter (Seq i1 i2) s1) (Inter i2 s2).
-Proof.
-  admit.
-Admitted.
 
 
 Lemma SOS_corps_carre_inter n i :
