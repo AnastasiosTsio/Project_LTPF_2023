@@ -287,7 +287,11 @@ Lemma Sn_carre n : S n * S n = S (n + n + n * n).
 Proof. ring. Qed.
 Definition invar_cc n := [n; n*n; S (n+n)].
 
-
+(*
+SOS_corps_carre : Ce lemme déclare que, selon la sémantique opérationnelle du 
+programme corps_carre, l'exécution à partir de l'état initial [n; n*n; S (n+n)] 
+conduit à l'état final [S n; S (S n); S (S (S n))]
+*)
 Theorem SOS_corps_carre n : SOS (Inter corps_carre (invar_cc n)) (Final (invar_cc (S n))).
 Proof.
   eapply SOS_again.
@@ -299,18 +303,27 @@ Proof.
   --- cbn. cbv[invar_cc]. rewrite Sn_2. rewrite Sn_carre. apply SOS_stop.
 Qed.    
 
-
+(*
+SOS_corps_carre_inter : Ce lemme déclare que, pour tout état intermédiaire 
+[n; n*n; S (n+n)] résultant de l'exécution de corps_carre avec une instruction i, 
+l'état intermédiaire suivant est [S n; S (S n); S (S (S n))]
+*)
 Lemma SOS_corps_carre_inter n i :
   SOS (Inter (Seq corps_carre i) (invar_cc n)) (Inter i (invar_cc (S n))).
 Proof.
   apply SOS_seq. apply SOS_corps_carre.
 Qed.
 
+(*
+SOS_Pcarre_tour : Ce théorème déclare que, pour toute valeur n et toute instruction 
+i différente de n, l'exécution d'un tour de boucle de Pcarre n à partir de l'état 
+[i; i*i; S (i+i)] conduit à l'état [S i; S i * S i; S (S i + S i)]
+*)
 Lemma SOS_Pcarre_tour :
   forall n i, eqnatb i n = false ->
   SOS (Inter (Pcarre n) (invar_cc i)) (Inter (Pcarre n) (invar_cc (S i))).
 Proof.
-  intros n i so.
+  cbv[invar_cc]. intros n i so.
   eapply SOS_again.
   - apply SOS_While.
   - eapply SOS_again.
@@ -325,6 +338,10 @@ Proof.
   - cbn. apply Hn.
 Qed.
 
+(*
+SOS_Pcarre_n_fini : Ce théorème déclare que l'exécution de Pcarre n à partir de l'état 
+[n; n*n; S (n+n)] atteint l'état final [n; n*n; S (n+n)]
+*)
 Theorem SOS_Pcarre_n_fini :
   forall n, SOS (Inter (Pcarre n) (invar_cc n)) (Final (invar_cc n)).
 Proof.
@@ -349,7 +366,10 @@ Proof.
   apply SOS_stop.
 Qed.
 
-
+(*
+SOS_Pcarre_inf_tour : Ce lemme déclare que, pour toute valeur i, l'exécution d'un tour de 
+boucle de Pcarre_inf à partir de l'état [i; i*i; S (i+i)] conduit à l'état  [S i; S i * S i; S (S i + S i)]
+*)
 Lemma SOS_Pcarre_inf_tour :
   forall i,
   SOS (Inter Pcarre_inf (invar_cc i)) (Inter Pcarre_inf (invar_cc (S i))).
@@ -364,6 +384,10 @@ Proof.
 Qed.
 
 
+(*
+SOS_Pcarre_inf_n : Ce théorème déclare que l'exécution de Pcarre_inf à partir de l'état initial 
+[0;0;1] atteint l'état [i; i*i; S (i+i)], pour toute valeur i
+*)
 Theorem SOS_Pcarre_inf_n :
   forall i,
   SOS (Inter Pcarre_inf [0; 0; 1]) (Inter Pcarre_inf (invar_cc i)).
@@ -418,6 +442,8 @@ Proof.
   }
 Qed.
 
+(* ========================================================================== *)
+(*Exercice 3.8.2*)
 Lemma f_SOS_1_corr : forall i s, SOS_1 i s (f_SOS_1 i s).
 Proof.
   intros i s.
