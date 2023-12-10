@@ -448,8 +448,8 @@ while (true) {}
 
 myLangToAST
 "
-bb := 1;
-ac := 1;
+hagrid := 1;
+bouteille := 1;
 if (hagrid && bouteille == true) 
   then{bouteille := 1} 
   else{bouteille := false};
